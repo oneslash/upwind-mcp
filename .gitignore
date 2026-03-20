@@ -4,13 +4,13 @@
 .idea/
 .vscode/
 
-upwind-mcp
-upwind-mcp.exe
-upwind-mcp-smoke
-upwind-mcp-smoke.exe
+/upwind-mcp
+/upwind-mcp.exe
+/upwind-mcp-smoke
+/upwind-mcp-smoke.exe
 
-bin/
-dist/
+/bin/
+/dist/
 coverage.out
 *.coverprofile
 *.test
