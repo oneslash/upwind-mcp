@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
@@ -81,12 +82,15 @@ func runContext(ctx context.Context, args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
+	slog.SetDefault(cfg.NewLogger(os.Stderr))
 
 	server := mcpserver.New(cfg)
 	switch cmd.transport {
 	case "stdio":
+		slog.Info("starting MCP server", "transport", "stdio", "log_format", cfg.LogFormat, "log_level", cfg.LogLevel.String())
 		return mcpserver.RunStdio(ctx, server)
 	case "http":
+		slog.Info("starting MCP server", "transport", "streamable-http", "address", cfg.HTTPAddr, "path", cfg.HTTPPath, "log_format", cfg.LogFormat, "log_level", cfg.LogLevel.String())
 		return mcpserver.ServeHTTP(ctx, server, cfg, mcpserver.HTTPOptions{
 			AllowPublicBind: cmd.allowPublicBind,
 		})

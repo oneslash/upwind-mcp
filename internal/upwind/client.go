@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -352,6 +353,7 @@ func (c *Client) doJSON(ctx context.Context, method, endpointPath string, query 
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	slog.Debug("sending Upwind API request", "method", method, "path", endpointPath)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%s %s: %w", method, endpointPath, err)
@@ -364,8 +366,10 @@ func (c *Client) doJSON(ctx context.Context, method, endpointPath string, query 
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
+		slog.Warn("Upwind API request failed", "method", method, "path", endpointPath, "status", resp.StatusCode)
 		return nil, fmt.Errorf("Upwind API %s %s returned %d: %s", method, endpointPath, resp.StatusCode, compactBody(responseBytes))
 	}
+	slog.Debug("received Upwind API response", "method", method, "path", endpointPath, "status", resp.StatusCode)
 
 	var payload any
 	if len(bytes.TrimSpace(responseBytes)) > 0 {
@@ -389,6 +393,7 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 	if c.token != nil && now.Add(tokenRefreshLeeway).Before(c.token.Expiry) {
 		token := c.token.AccessToken
 		c.mu.Unlock()
+		slog.Debug("reusing cached OAuth token")
 		return token, nil
 	}
 	c.mu.Unlock()
@@ -423,6 +428,7 @@ func (c *Client) fetchToken(ctx context.Context) (*cachedToken, error) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
+	slog.Debug("fetching OAuth token")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch OAuth token: %w", err)
@@ -434,6 +440,7 @@ func (c *Client) fetchToken(ctx context.Context) (*cachedToken, error) {
 		return nil, fmt.Errorf("read OAuth token response: %w", err)
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
+		slog.Warn("OAuth token request failed", "status", resp.StatusCode)
 		return nil, fmt.Errorf("OAuth token request returned %d: %s", resp.StatusCode, compactBody(responseBytes))
 	}
 
@@ -449,6 +456,7 @@ func (c *Client) fetchToken(ctx context.Context) (*cachedToken, error) {
 	if expiresIn <= 0 {
 		expiresIn = time.Hour
 	}
+	slog.Debug("received OAuth token", "expires_in", expiresIn.String())
 
 	return &cachedToken{
 		AccessToken: tokenResp.AccessToken,

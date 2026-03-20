@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/url"
 	"os"
 	"path"
@@ -18,6 +20,14 @@ const (
 	DefaultHTTPAddr       = "127.0.0.1:8080"
 	DefaultHTTPPath       = "/mcp"
 	DefaultAuthURL        = "https://auth.upwind.io/oauth/token"
+	DefaultLogFormat      = LogFormatDisabled
+	DefaultLogLevel       = slog.LevelInfo
+)
+
+const (
+	LogFormatDisabled = "disabled"
+	LogFormatText     = "text"
+	LogFormatJSON     = "json"
 )
 
 type Config struct {
@@ -31,6 +41,8 @@ type Config struct {
 	HTTPPath        string
 	HTTPBearerToken string
 	AuthURL         string
+	LogFormat       string
+	LogLevel        slog.Level
 }
 
 func LoadFromEnv() (*Config, error) {
@@ -48,6 +60,16 @@ func LoadFromEnv() (*Config, error) {
 		requestTimeout = parsed
 	}
 
+	logFormat, err := parseLogFormat(getenv("UPWIND_MCP_LOG", envFile))
+	if err != nil {
+		return nil, err
+	}
+
+	logLevel, err := parseLogLevel(getenv("UPWIND_MCP_LOG_LEVEL", envFile))
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &Config{
 		Region:          normalizeRegion(getenv("UPWIND_REGION", envFile)),
 		BaseURL:         strings.TrimSpace(getenv("UPWIND_BASE_URL", envFile)),
@@ -59,6 +81,8 @@ func LoadFromEnv() (*Config, error) {
 		HTTPPath:        normalizeHTTPPath(getenv("UPWIND_MCP_HTTP_PATH", envFile)),
 		HTTPBearerToken: strings.TrimSpace(getenv("UPWIND_MCP_HTTP_BEARER_TOKEN", envFile)),
 		AuthURL:         DefaultAuthURL,
+		LogFormat:       logFormat,
+		LogLevel:        logLevel,
 	}
 
 	return cfg, nil
@@ -161,4 +185,51 @@ func defaultIfEmpty(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func (c *Config) LoggingEnabled() bool {
+	return c.LogFormat != LogFormatDisabled
+}
+
+func (c *Config) NewLogger(w io.Writer) *slog.Logger {
+	opts := &slog.HandlerOptions{Level: c.LogLevel}
+
+	switch c.LogFormat {
+	case LogFormatJSON:
+		return slog.New(slog.NewJSONHandler(w, opts))
+	case LogFormatText:
+		return slog.New(slog.NewTextHandler(w, opts))
+	default:
+		return slog.New(slog.NewTextHandler(io.Discard, opts))
+	}
+}
+
+func parseLogFormat(raw string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "0", "false", "off", "disable", "disabled":
+		return DefaultLogFormat, nil
+	case "1", "true", "stderr", "console", LogFormatText:
+		return LogFormatText, nil
+	case LogFormatJSON:
+		return LogFormatJSON, nil
+	default:
+		return "", fmt.Errorf("invalid UPWIND_MCP_LOG %q: supported values are disabled, text, or json", raw)
+	}
+}
+
+func parseLogLevel(raw string) (slog.Level, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "":
+		return DefaultLogLevel, nil
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn", "warning":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("invalid UPWIND_MCP_LOG_LEVEL %q: supported values are debug, info, warn, and error", raw)
+	}
 }

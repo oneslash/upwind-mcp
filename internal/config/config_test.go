@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +15,8 @@ func TestLoadFromEnvDefaults(t *testing.T) {
 	t.Setenv("UPWIND_MCP_HTTP_ADDR", "")
 	t.Setenv("UPWIND_MCP_HTTP_PATH", "")
 	t.Setenv("UPWIND_MCP_HTTP_BEARER_TOKEN", "")
+	t.Setenv("UPWIND_MCP_LOG", "")
+	t.Setenv("UPWIND_MCP_LOG_LEVEL", "")
 	t.Setenv("UPWIND_ORGANIZATION_ID", "")
 	t.Setenv("UPWIND_CLIENT_ID", "")
 	t.Setenv("UPWIND_CLIENT_SECRET", "")
@@ -35,8 +38,17 @@ func TestLoadFromEnvDefaults(t *testing.T) {
 	if cfg.HTTPPath != DefaultHTTPPath {
 		t.Fatalf("HTTPPath = %q, want %q", cfg.HTTPPath, DefaultHTTPPath)
 	}
+	if cfg.HTTPBearerToken != "" {
+		t.Fatalf("HTTPBearerToken = %q, want empty", cfg.HTTPBearerToken)
+	}
 	if cfg.AuthURL != DefaultAuthURL {
 		t.Fatalf("AuthURL = %q, want %q", cfg.AuthURL, DefaultAuthURL)
+	}
+	if cfg.LogFormat != DefaultLogFormat {
+		t.Fatalf("LogFormat = %q, want %q", cfg.LogFormat, DefaultLogFormat)
+	}
+	if cfg.LogLevel != DefaultLogLevel {
+		t.Fatalf("LogLevel = %v, want %v", cfg.LogLevel, DefaultLogLevel)
 	}
 }
 
@@ -46,6 +58,9 @@ func TestLoadFromEnvParsesOverrides(t *testing.T) {
 	t.Setenv("UPWIND_REQUEST_TIMEOUT", "45s")
 	t.Setenv("UPWIND_MCP_HTTP_ADDR", "127.0.0.1:9090")
 	t.Setenv("UPWIND_MCP_HTTP_PATH", "custom/mcp")
+	t.Setenv("UPWIND_MCP_HTTP_BEARER_TOKEN", " local-dev-token ")
+	t.Setenv("UPWIND_MCP_LOG", "json")
+	t.Setenv("UPWIND_MCP_LOG_LEVEL", "debug")
 
 	cfg, err := LoadFromEnv()
 	if err != nil {
@@ -67,13 +82,22 @@ func TestLoadFromEnvParsesOverrides(t *testing.T) {
 	if cfg.HTTPPath != "/custom/mcp" {
 		t.Fatalf("HTTPPath = %q, want /custom/mcp", cfg.HTTPPath)
 	}
+	if cfg.HTTPBearerToken != "local-dev-token" {
+		t.Fatalf("HTTPBearerToken = %q, want local-dev-token", cfg.HTTPBearerToken)
+	}
+	if cfg.LogFormat != LogFormatJSON {
+		t.Fatalf("LogFormat = %q, want %q", cfg.LogFormat, LogFormatJSON)
+	}
+	if cfg.LogLevel != slog.LevelDebug {
+		t.Fatalf("LogLevel = %v, want %v", cfg.LogLevel, slog.LevelDebug)
+	}
 }
 
 func TestLoadFromEnvLoadsDotEnv(t *testing.T) {
 	tempDir := t.TempDir()
 	chdir(t, tempDir)
 
-	if err := os.WriteFile(filepath.Join(tempDir, ".env"), []byte("UPWIND_REGION=eu\nUPWIND_CLIENT_ID=dotenv-client\nUPWIND_REQUEST_TIMEOUT=15s\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tempDir, ".env"), []byte("UPWIND_REGION=eu\nUPWIND_CLIENT_ID=dotenv-client\nUPWIND_REQUEST_TIMEOUT=15s\nUPWIND_MCP_HTTP_BEARER_TOKEN=dotenv-token\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(.env) returned error: %v", err)
 	}
 
@@ -91,18 +115,22 @@ func TestLoadFromEnvLoadsDotEnv(t *testing.T) {
 	if cfg.RequestTimeout != 15*time.Second {
 		t.Fatalf("RequestTimeout = %v, want 15s", cfg.RequestTimeout)
 	}
+	if cfg.HTTPBearerToken != "dotenv-token" {
+		t.Fatalf("HTTPBearerToken = %q, want dotenv-token", cfg.HTTPBearerToken)
+	}
 }
 
 func TestLoadFromEnvDoesNotOverrideProcessEnvWithDotEnv(t *testing.T) {
 	tempDir := t.TempDir()
 	chdir(t, tempDir)
 
-	if err := os.WriteFile(filepath.Join(tempDir, ".env"), []byte("UPWIND_REGION=eu\nUPWIND_CLIENT_ID=dotenv-client\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tempDir, ".env"), []byte("UPWIND_REGION=eu\nUPWIND_CLIENT_ID=dotenv-client\nUPWIND_MCP_HTTP_BEARER_TOKEN=dotenv-token\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(.env) returned error: %v", err)
 	}
 
 	t.Setenv("UPWIND_REGION", "me")
 	t.Setenv("UPWIND_CLIENT_ID", "process-client")
+	t.Setenv("UPWIND_MCP_HTTP_BEARER_TOKEN", "process-token")
 
 	cfg, err := LoadFromEnv()
 	if err != nil {
@@ -115,6 +143,9 @@ func TestLoadFromEnvDoesNotOverrideProcessEnvWithDotEnv(t *testing.T) {
 	if cfg.ClientID != "process-client" {
 		t.Fatalf("ClientID = %q, want process-client", cfg.ClientID)
 	}
+	if cfg.HTTPBearerToken != "process-token" {
+		t.Fatalf("HTTPBearerToken = %q, want process-token", cfg.HTTPBearerToken)
+	}
 }
 
 func TestLoadFromEnvReloadsDotEnvWithoutMutatingProcessEnv(t *testing.T) {
@@ -122,7 +153,7 @@ func TestLoadFromEnvReloadsDotEnvWithoutMutatingProcessEnv(t *testing.T) {
 	chdir(t, tempDir)
 
 	envPath := filepath.Join(tempDir, ".env")
-	if err := os.WriteFile(envPath, []byte("UPWIND_CLIENT_ID=first-client\n"), 0o644); err != nil {
+	if err := os.WriteFile(envPath, []byte("UPWIND_CLIENT_ID=first-client\nUPWIND_MCP_HTTP_BEARER_TOKEN=first-token\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(.env) returned error: %v", err)
 	}
 
@@ -133,8 +164,11 @@ func TestLoadFromEnvReloadsDotEnvWithoutMutatingProcessEnv(t *testing.T) {
 	if first.ClientID != "first-client" {
 		t.Fatalf("first ClientID = %q, want first-client", first.ClientID)
 	}
+	if first.HTTPBearerToken != "first-token" {
+		t.Fatalf("first HTTPBearerToken = %q, want first-token", first.HTTPBearerToken)
+	}
 
-	if err := os.WriteFile(envPath, []byte("UPWIND_CLIENT_ID=second-client\n"), 0o644); err != nil {
+	if err := os.WriteFile(envPath, []byte("UPWIND_CLIENT_ID=second-client\nUPWIND_MCP_HTTP_BEARER_TOKEN=second-token\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(.env) returned error: %v", err)
 	}
 
@@ -144,6 +178,27 @@ func TestLoadFromEnvReloadsDotEnvWithoutMutatingProcessEnv(t *testing.T) {
 	}
 	if second.ClientID != "second-client" {
 		t.Fatalf("second ClientID = %q, want second-client", second.ClientID)
+	}
+	if second.HTTPBearerToken != "second-token" {
+		t.Fatalf("second HTTPBearerToken = %q, want second-token", second.HTTPBearerToken)
+	}
+}
+
+func TestLoadFromEnvRejectsInvalidLogFormat(t *testing.T) {
+	t.Setenv("UPWIND_MCP_LOG", "pretty")
+
+	_, err := LoadFromEnv()
+	if err == nil {
+		t.Fatal("LoadFromEnv() error = nil, want error")
+	}
+}
+
+func TestLoadFromEnvRejectsInvalidLogLevel(t *testing.T) {
+	t.Setenv("UPWIND_MCP_LOG_LEVEL", "trace")
+
+	_, err := LoadFromEnv()
+	if err == nil {
+		t.Fatal("LoadFromEnv() error = nil, want error")
 	}
 }
 

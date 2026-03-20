@@ -58,12 +58,28 @@ func TestNewHTTPHandlerRequiresBearerToken(t *testing.T) {
 	}
 }
 
+func TestNewHTTPHandlerAcceptsBearerToken(t *testing.T) {
+	cfg := &config.Config{
+		Region:          "us",
+		RequestTimeout:  5 * time.Second,
+		HTTPAddr:        config.DefaultHTTPAddr,
+		HTTPPath:        config.DefaultHTTPPath,
+		HTTPBearerToken: "local-test-token",
+	}
+
+	_, err := NewHTTPHandler(New(cfg), cfg)
+	if err != nil {
+		t.Fatalf("NewHTTPHandler() error = %v", err)
+	}
+}
+
 func TestServeHTTPRejectsPublicBindWithoutFlag(t *testing.T) {
 	cfg := &config.Config{
-		Region:         "us",
-		RequestTimeout: 5 * time.Second,
-		HTTPAddr:       "0.0.0.0:8080",
-		HTTPPath:       config.DefaultHTTPPath,
+		Region:          "us",
+		RequestTimeout:  5 * time.Second,
+		HTTPAddr:        "0.0.0.0:8080",
+		HTTPPath:        config.DefaultHTTPPath,
+		HTTPBearerToken: "local-test-token",
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

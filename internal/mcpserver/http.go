@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -19,7 +20,11 @@ type HTTPOptions struct {
 }
 
 func RunStdio(ctx context.Context, server *mcp.Server) error {
-	return server.Run(ctx, &mcp.StdioTransport{})
+	err := server.Run(ctx, &mcp.StdioTransport{})
+	if err == nil {
+		slog.Info("stdio transport stopped")
+	}
+	return err
 }
 
 func ServeHTTP(ctx context.Context, server *mcp.Server, cfg *config.Config, opts HTTPOptions) error {
@@ -44,6 +49,7 @@ func ServeHTTP(ctx context.Context, server *mcp.Server, cfg *config.Config, opts
 
 	go func() {
 		<-ctx.Done()
+		slog.Info("shutting down HTTP server")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = httpServer.Shutdown(shutdownCtx)
@@ -51,6 +57,7 @@ func ServeHTTP(ctx context.Context, server *mcp.Server, cfg *config.Config, opts
 
 	err = httpServer.ListenAndServe()
 	if err == nil || err == http.ErrServerClosed {
+		slog.Info("HTTP server stopped")
 		return nil
 	}
 	return err

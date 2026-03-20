@@ -82,6 +82,8 @@ Configure Upwind access and server behavior with environment variables. `upwind-
 - `UPWIND_MCP_HTTP_ADDR` default `127.0.0.1:8080`
 - `UPWIND_MCP_HTTP_PATH` default `/mcp`
 - `UPWIND_MCP_HTTP_BEARER_TOKEN` required for HTTP mode
+- `UPWIND_MCP_LOG` default `disabled`; supported values are `disabled`, `text`, and `json`
+- `UPWIND_MCP_LOG_LEVEL` default `info`; supported values are `debug`, `info`, `warn`, and `error`
 
 ## Example usage
 
@@ -92,6 +94,8 @@ cat > .env <<'EOF'
 UPWIND_ORGANIZATION_ID=org_...
 UPWIND_CLIENT_ID=...
 UPWIND_CLIENT_SECRET=...
+UPWIND_MCP_LOG=text
+UPWIND_MCP_LOG_LEVEL=info
 EOF
 
 go run ./cmd/upwind-mcp
@@ -105,6 +109,8 @@ UPWIND_ORGANIZATION_ID=org_...
 UPWIND_CLIENT_ID=...
 UPWIND_CLIENT_SECRET=...
 UPWIND_MCP_HTTP_BEARER_TOKEN=local-dev-token
+UPWIND_MCP_LOG=json
+UPWIND_MCP_LOG_LEVEL=debug
 EOF
 
 go run ./cmd/upwind-mcp serve-http

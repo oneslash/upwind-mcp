@@ -31,10 +31,11 @@ func TestHelperProcess(t *testing.T) {
 
 func TestServerStartsWithoutUpwindCredentials(t *testing.T) {
 	cfg := &config.Config{
-		Region:         "us",
-		RequestTimeout: 5 * time.Second,
-		HTTPAddr:       config.DefaultHTTPAddr,
-		HTTPPath:       config.DefaultHTTPPath,
+		Region:          "us",
+		RequestTimeout:  5 * time.Second,
+		HTTPAddr:        config.DefaultHTTPAddr,
+		HTTPPath:        config.DefaultHTTPPath,
+		HTTPBearerToken: "local-test-token",
 	}
 
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
