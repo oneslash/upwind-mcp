@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
+	"strings"
 	"testing"
 )
 
@@ -63,5 +65,44 @@ func TestParseCommandRejectsUnexpectedArgs(t *testing.T) {
 	var usage usageError
 	if !errors.As(err, &usage) {
 		t.Fatalf("error %T, want usageError", err)
+	}
+}
+
+func TestParseCommandVersion(t *testing.T) {
+	cmd, err := parseCommand([]string{"version"})
+	if err != nil {
+		t.Fatalf("parseCommand(version) error = %v", err)
+	}
+	if !cmd.printVersion {
+		t.Fatal("printVersion = false, want true")
+	}
+}
+
+func TestRunVersionDoesNotRequireConfig(t *testing.T) {
+	t.Setenv("UPWIND_ORGANIZATION_ID", "")
+	t.Setenv("UPWIND_CLIENT_ID", "")
+	t.Setenv("UPWIND_CLIENT_SECRET", "")
+
+	origVersion, origCommit, origDate := version, commit, date
+	version, commit, date = "v1.2.3", "abcdef0", "2026-03-20T12:00:00Z"
+	t.Cleanup(func() {
+		version, commit, date = origVersion, origCommit, origDate
+	})
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"version"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("run(version) exit code = %d, want 0", code)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+
+	got := strings.TrimSpace(stdout.String())
+	want := "upwind-mcp v1.2.3 (commit abcdef0, built 2026-03-20T12:00:00Z)"
+	if got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
 	}
 }

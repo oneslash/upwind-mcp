@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: upwind-mcp
+
+before:
+  hooks:
+    - go test ./...
+
+builds:
+  - id: upwind-mcp
+    main: ./cmd/upwind-mcp
+    binary: upwind-mcp
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .FullCommit }} -X main.date={{ .CommitDate }}
+
+archives:
+  - id: bundles
+    ids:
+      - upwind-mcp
+    wrap_in_directory: true
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - README.md
+      - docs/security.md
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  prerelease: auto
+  use_existing_draft: true
+  replace_existing_artifacts: true
+
+changelog:
+  sort: asc

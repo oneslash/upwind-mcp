@@ -32,6 +32,7 @@ Build a local binary:
 ```bash
 go build -o upwind-mcp ./cmd/upwind-mcp
 ./upwind-mcp
+./upwind-mcp version
 ```
 
 If you prefer `just` over a Makefile:
@@ -114,3 +115,25 @@ go run ./cmd/upwind-mcp serve-http
 HTTP mode is local-first and protected by a shared bearer token. Upwind credentials stay in environment variables only and are never printed back by the server.
 
 See [docs/security.md](docs/security.md) for the transport and deployment guidance.
+
+## Releases
+
+Releases are automated with GoReleaser and GitHub Actions.
+
+To publish a release, create and push a semantic version tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+That tag triggers the release workflow in `.github/workflows/release.yml`, which:
+
+- runs the test suite
+- builds `upwind-mcp` for Linux, macOS, and Windows on `amd64` and `arm64`
+- packages archives and uploads them to the GitHub Release
+- publishes a `checksums.txt` file alongside the artifacts
+
+The tag is the release trigger. If a draft GitHub release already exists for the same tag, GoReleaser reuses it and attaches the built artifacts there.
+
+Pre-release tags such as `v0.2.0-rc.1` are published as GitHub pre-releases automatically.

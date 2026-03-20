@@ -15,9 +15,16 @@ import (
 	"upwind-mcp/internal/mcpserver"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 type command struct {
 	transport       string
 	allowPublicBind bool
+	printVersion    bool
 }
 
 type usageError struct {
@@ -33,14 +40,14 @@ func (e usageError) Unwrap() error {
 }
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stderr))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-func run(args []string, stderr io.Writer) int {
+func run(args []string, stdout, stderr io.Writer) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := runContext(ctx, args); err != nil {
+	if err := runContext(ctx, args, stdout); err != nil {
 		var usage usageError
 		if errors.As(err, &usage) {
 			if !errors.Is(err, flag.ErrHelp) {
@@ -60,9 +67,13 @@ func run(args []string, stderr io.Writer) int {
 	return 0
 }
 
-func runContext(ctx context.Context, args []string) error {
+func runContext(ctx context.Context, args []string, stdout io.Writer) error {
 	cmd, err := parseCommand(args)
 	if err != nil {
+		return err
+	}
+	if cmd.printVersion {
+		_, err := fmt.Fprintln(stdout, versionText())
 		return err
 	}
 
@@ -92,6 +103,11 @@ func parseCommand(args []string) (command, error) {
 	switch args[0] {
 	case "help", "-h", "--help":
 		return command{}, usageError{err: flag.ErrHelp}
+	case "version", "-version", "--version":
+		if len(args) != 1 {
+			return command{}, usageError{err: fmt.Errorf("unexpected arguments: %s", strings.Join(args[1:], " "))}
+		}
+		return command{printVersion: true}, nil
 	case "serve-http":
 		fs := flag.NewFlagSet("serve-http", flag.ContinueOnError)
 		fs.SetOutput(io.Discard)
@@ -112,12 +128,18 @@ func parseCommand(args []string) (command, error) {
 	}
 }
 
+func versionText() string {
+	return fmt.Sprintf("upwind-mcp %s (commit %s, built %s)", version, commit, date)
+}
+
 func usageText() string {
 	return `Usage:
   upwind-mcp
+  upwind-mcp version
   upwind-mcp serve-http [--public-bind]
 
 Commands:
+  version       Print build version information
   serve-http    Run the MCP server over Streamable HTTP
 
 Flags:
