@@ -1,0 +1,16 @@
+.DS_Store
+.env
+.direnv/
+.idea/
+.vscode/
+
+upwind-mcp
+upwind-mcp.exe
+upwind-mcp-smoke
+upwind-mcp-smoke.exe
+
+bin/
+dist/
+coverage.out
+*.coverprofile
+*.test
