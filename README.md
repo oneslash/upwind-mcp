@@ -132,8 +132,18 @@ That tag triggers the release workflow in `.github/workflows/release.yml`, which
 - runs the test suite
 - builds `upwind-mcp` for Linux, macOS, and Windows on `amd64` and `arm64`
 - packages archives and uploads them to the GitHub Release
+- builds and pushes a multi-architecture container image to `ghcr.io/oneslash/upwind-mcp`
 - publishes a `checksums.txt` file alongside the artifacts
 
 The tag is the release trigger. If a draft GitHub release already exists for the same tag, GoReleaser reuses it and attaches the built artifacts there.
 
 Pre-release tags such as `v0.2.0-rc.1` are published as GitHub pre-releases automatically.
+
+For stable tags, the container image is pushed with both the Git tag and `latest`:
+
+```bash
+docker pull ghcr.io/oneslash/upwind-mcp:v0.1.0
+docker pull ghcr.io/oneslash/upwind-mcp:latest
+```
+
+For pre-release tags, only the exact Git tag is published.

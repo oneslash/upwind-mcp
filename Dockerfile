@@ -1,16 +1,26 @@
-FROM golang:1.26.1-bookworm AS build
+# syntax=docker/dockerfile:1.7
+
+ARG GO_VERSION=1.26.1
+
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-bookworm AS build
 
 WORKDIR /src
+
+ARG TARGETOS
+ARG TARGETARCH
+ARG VERSION=dev
+ARG COMMIT=none
+ARG BUILD_DATE=unknown
 
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build \
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
     -trimpath \
     -buildvcs=false \
-    -ldflags="-s -w" \
+    -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${BUILD_DATE}" \
     -o /out/upwind-mcp \
     ./cmd/upwind-mcp
 
